@@ -21,7 +21,7 @@ Pour exécuter ce projet du premier coup, vous devez avoir installé sur votre m
 
 **1. Cloner le repository**
 \`\`\`bash
-git clone <VOTRE_LIEN_GITHUB_ICI>
+git clone https://github.com/NADIM2000AMINE/electronic-shop-api.git
 cd electronic-shop-api
 \`\`\`
 
