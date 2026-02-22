@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechStore - Electronic Shop API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <nav class="bg-blue-900 text-white p-4 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-wider">⚡ TechStore</h1>
+            <div class="space-x-4">
+                <button onclick="showSection('public-view')" class="hover:text-blue-300">Boutique Publique</button>
+                <button id="nav-login-btn" onclick="showSection('login-view')" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500">Espace Admin</button>
+                <button id="nav-logout-btn" onclick="logout()" class="hidden bg-red-600 px-4 py-2 rounded hover:bg-red-500">Déconnexion</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6 mt-4">
+
+        <div id="public-view" class="section-view">
+            <h2 class="text-3xl font-bold mb-6 text-center">Bienvenue dans notre Boutique</h2>
+            <div id="public-products" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+        </div>
+
+        <div id="login-view" class="section-view hidden max-w-md mx-auto bg-white p-8 rounded shadow-md mt-10">
+            <h2 class="text-2xl font-bold mb-6 text-center">Connexion Employé</h2>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                    <input type="email" id="email" class="w-full p-2 border rounded" value="super@techstore.com" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Mot de passe</label>
+                    <input type="password" id="password" class="w-full p-2 border rounded" value="password123" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-900 text-white font-bold py-2 px-4 rounded hover:bg-blue-800">Se Connecter</button>
+                <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
+            </form>
+            <div class="mt-4 text-sm text-gray-500 border-t pt-4">
+                <p>💡 <b>SuperAdmin:</b> super@techstore.com</p>
+                <p>💡 <b>Admin:</b> admin@techstore.com</p>
+            </div>
+        </div>
+
+        <div id="admin-view" class="section-view hidden">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800">Tableau de bord</h2>
+                    <p id="user-info" class="text-gray-500"></p>
+                </div>
+            </div>
+
+            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 hidden">
+                <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
+                    <h3 class="text-gray-500 text-sm">Ventes Totales</h3>
+                    <p id="stat-sales" class="text-2xl font-bold text-gray-800">0 €</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow border-l-4 border-red-500">
+                    <h3 class="text-gray-500 text-sm">Dépenses</h3>
+                    <p id="stat-expenses" class="text-2xl font-bold text-gray-800">0 €</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow border-l-4 border-green-500">
+                    <h3 class="text-gray-500 text-sm">Profit Net</h3>
+                    <p id="stat-profit" class="text-2xl font-bold text-gray-800">0 €</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow border-l-4 border-yellow-500">
+                    <h3 class="text-gray-500 text-sm">Produits Stock Faible</h3>
+                    <p id="stat-low-stock" class="text-2xl font-bold text-gray-800">0</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded shadow overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="py-3 px-4 text-left">Produit</th>
+                            <th class="py-3 px-4 text-left">Catégorie</th>
+                            <th class="py-3 px-4 text-left">Stock</th>
+                            <th class="py-3 px-4 text-left">Prix de vente</th>
+                            <th id="th-purchase" class="py-3 px-4 text-left hidden text-red-300">Prix d'achat (Secret)</th>
+                            <th class="py-3 px-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="private-products" class="divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:3000/api";
+        let jwtToken = localStorage.getItem('jwt');
+        let currentUser = JSON.parse(localStorage.getItem('user'));
+
+        // ============ NAVIGATION ============
+        function showSection(sectionId) {
+            document.querySelectorAll('.section-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            if (sectionId === 'public-view') loadPublicProducts();
+            if (sectionId === 'admin-view' && jwtToken) loadAdminData();
+        }
+
+        function checkAuth() {
+            if (jwtToken && currentUser) {
+                document.getElementById('nav-login-btn').classList.add('hidden');
+                document.getElementById('nav-logout-btn').classList.remove('hidden');
+                showSection('admin-view');
+            } else {
+                document.getElementById('nav-login-btn').classList.remove('hidden');
+                document.getElementById('nav-logout-btn').classList.add('hidden');
+                showSection('public-view');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('jwt');
+            localStorage.removeItem('user');
+            jwtToken = null;
+            currentUser = null;
+            checkAuth();
+        }
+
+        // ============ VUE PUBLIQUE ============
+        async function loadPublicProducts() {
+            try {
+                const res = await fetch(`${API_URL}/public/1/products`);
+                const data = await res.json();
+                const container = document.getElementById('public-products');
+                container.innerHTML = '';
+
+                data.products.forEach(p => {
+                    const btn = p.stock > 0 
+                        ? `<button onclick="contactWhatsApp(${p.id})" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded w-full mt-4 font-bold">📲 WhatsApp</button>`
+                        : `<button disabled class="bg-gray-400 text-white px-4 py-2 rounded w-full mt-4 font-bold">Rupture de stock</button>`;
+                    
+                    container.innerHTML += `
+                        <div class="bg-white p-4 rounded shadow text-center">
+                            <img src="${p.image_url}" alt="${p.name}" class="w-full h-48 object-cover rounded mb-4" onerror="this.src='https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600&q=80'">
+                            <h3 class="text-xl font-bold">${p.name}</h3>
+                            <p class="text-gray-500 text-sm mb-2">${p.category}</p>
+                            <p class="text-2xl font-bold text-blue-900">${p.selling_price} €</p>
+                            <p class="text-sm mt-2 ${p.stock > 0 ? 'text-green-600' : 'text-red-600'}">${p.stock} restants</p>
+                            ${btn}
+                        </div>`;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function contactWhatsApp(id) {
+            const res = await fetch(`${API_URL}/public/products/${id}/whatsapp`);
+            const data = await res.json();
+            window.open(data.whatsapp_url, '_blank');
+        }
+
+        // ============ AUTHENTIFICATION ============
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorP = document.getElementById('login-error');
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || "Identifiants invalides");
+
+                jwtToken = data.data.token;
+                currentUser = data.data.user;
+                localStorage.setItem('jwt', jwtToken);
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                
+                errorP.classList.add('hidden');
+                checkAuth();
+            } catch (err) {
+                errorP.innerText = err.message;
+                errorP.classList.remove('hidden');
+            }
+        }
+
+        // ============ VUE ADMIN & DASHBOARD ============
+        async function loadAdminData() {
+            document.getElementById('user-info').innerText = `Connecté en tant que ${currentUser.name} (${currentUser.role})`;
+
+            // Gérer l'affichage des colonnes secrètes selon le rôle
+            const isSuperAdmin = currentUser.role === "SuperAdmin";
+            if (isSuperAdmin) {
+                document.getElementById('stats-container').classList.remove('hidden');
+                document.getElementById('th-purchase').classList.remove('hidden');
+                loadDashboardStats();
+            } else {
+                document.getElementById('stats-container').classList.add('hidden');
+                document.getElementById('th-purchase').classList.add('hidden');
+            }
+
+            // Charger les produits privés
+            const res = await fetch(`${API_URL}/products`, {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            const data = await res.json();
+            const tbody = document.getElementById('private-products');
+            tbody.innerHTML = '';
+
+            data.products.forEach(p => {
+                const purchaseHtml = isSuperAdmin ? `<td class="py-3 px-4 text-red-500 font-bold">${p.purchase_price} €</td>` : '';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="py-3 px-4 font-semibold">${p.name}</td>
+                        <td class="py-3 px-4 text-sm text-gray-500">${p.category}</td>
+                        <td class="py-3 px-4"><span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-bold">${p.stock}</span></td>
+                        <td class="py-3 px-4">${p.selling_price} €</td>
+                        ${purchaseHtml}
+                        <td class="py-3 px-4 text-center">
+                            <button onclick="makeSale(${p.id}, ${p.selling_price})" class="bg-indigo-600 text-white px-3 py-1 rounded shadow hover:bg-indigo-500 font-bold text-sm">Vendre 1x</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function loadDashboardStats() {
+            const res = await fetch(`${API_URL}/reports/dashboard`, {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            const data = await res.json();
+            document.getElementById('stat-sales').innerText = data.total_sales + " €";
+            document.getElementById('stat-expenses').innerText = data.total_expenses + " €";
+            document.getElementById('stat-profit').innerText = data.net_profit + " €";
+            document.getElementById('stat-low-stock').innerText = (data.low_stock_products || []).length;
+        }
+
+        // ============ VENTE (TRANSACTION) ============
+        async function makeSale(productId, amount) {
+            try {
+                const res = await fetch(`${API_URL}/transactions`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwtToken}`
+                    },
+                    body: JSON.stringify({ type: "Sale", product_id: productId, quantity: 1, amount: amount })
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert("Erreur: " + error.error);
+                    return;
+                }
+                
+                // Recharger les données pour voir le stock baisser en direct
+                loadAdminData();
+            } catch (err) { alert("Erreur de connexion"); }
+        }
+
+        // Init
+        checkAuth();
+    </script>
+</body>
+</html>
