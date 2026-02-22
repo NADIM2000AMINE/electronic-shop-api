@@ -1,12 +1,11 @@
-```markdown
 # Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
-    SHOP ||--o{ USER : employs
-    SHOP ||--o{ PRODUCT : owns
-    SHOP ||--o{ TRANSACTION : records
-    PRODUCT ||--o{ TRANSACTION : involves
+    SHOP ||--o{ USER : "employs"
+    SHOP ||--o{ PRODUCT : "owns"
+    SHOP ||--o{ TRANSACTION : "records"
+    PRODUCT ||--o{ TRANSACTION : "involves"
 
     SHOP {
         int id PK
